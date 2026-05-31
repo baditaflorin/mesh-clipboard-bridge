@@ -19,7 +19,7 @@ function shortFrom(id: string) {
 export function Feature({ room, config }: Props) {
   void config;
   const [draft, setDraft] = useState("");
-  const [, rerender] = useState(0);
+  const [version, rerender] = useState(0);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,13 +27,20 @@ export function Feature({ room, config }: Props) {
     const arr = room.doc.getArray<Entry>("clip");
     const onChange = () => rerender((n) => n + 1);
     arr.observe(onChange);
+    // Pick up any entries that already exist in the shared doc (e.g. a peer
+    // sent something before this component mounted / observed).
+    rerender((n) => n + 1);
     return () => arr.unobserve(onChange);
   }, [room]);
 
+  // Recompute on every Yjs `clip` change. `version` is bumped by the observe
+  // callback above; without it in the deps this memo would cache the first
+  // snapshot and never reflect local OR remote writes.
   const entries = useMemo(() => {
     if (!room) return [] as Entry[];
     return [...room.doc.getArray<Entry>("clip").toArray()].reverse();
-  }, [room]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room, version]);
 
   if (!room) {
     return (
